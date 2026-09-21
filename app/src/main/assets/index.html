@@ -1,13 +1,775 @@
-<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Life Record</title>
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Life Record</title>
 <style>
-:root{font-family:Arial,sans-serif;color:#18181b;background:#fff}*{box-sizing:border-box}body{margin:0}button,input{font:inherit}.app{max-width:390px;min-height:100vh;margin:auto;padding:calc(24px + env(safe-area-inset-top)) 24px calc(112px + env(safe-area-inset-bottom))}header{display:flex;justify-content:space-between;align-items:center}h1{font-size:28px;margin:0;font-weight:600}.date{margin-top:64px;font:12px monospace;letter-spacing:3px;color:#71717a}.hero{font-size:48px;font-weight:300;line-height:1.05;margin:18px 0 48px}.tabs{display:flex;border-bottom:1px solid #e4e4e7}.tabs button{border:0;background:white;padding:14px 12px;color:#71717a}.tabs button.active{color:#18181b;border-bottom:2px solid #18181b}.entry{padding:28px 0;border-bottom:1px solid #f4f4f5}.meta{font:11px monospace;letter-spacing:2px;color:#71717a}.entry h2{font-size:19px;margin:12px 0}.entry p{color:#71717a;line-height:1.55}.dock{position:fixed;bottom:calc(16px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);width:calc(100% - 32px);max-width:358px;height:80px;border:1px solid #e4e4e7;background:#fff;display:flex;align-items:center;justify-content:space-around}.record{width:56px;height:56px;border-radius:50%;border:1px solid #27272a;background:#0a0a0a;color:white;font-size:22px;transition:all 140ms linear}.record.on{width:164px;border-radius:28px;background:#0a0a0a}.dot{display:none;color:#0047ff}.on .dot{display:inline}.hint{border-left:2px solid #0047ff;padding:14px 18px;color:#71717a;margin-top:22px}.todo{display:flex;gap:12px;align-items:center;padding:18px 0;border-bottom:1px solid #f4f4f5}.todo.done span{text-decoration:line-through;color:#a1a1aa}.settings{margin-top:24px;border-top:1px solid #e4e4e7;padding-top:18px}.settings input{width:100%;padding:14px;border:1px solid #e4e4e7}.small{font-size:12px;color:#71717a;line-height:1.5}
-</style></head><body><main class="app"><header><h1>Life Record</h1><button onclick="toggleSettings()" aria-label="Cài đặt">⚙</button></header><div class="date" id="date"></div><div class="hero">Ghi lại.<br>Hiểu sâu hơn.</div><div class="tabs"><button class="active" onclick="show('lesson',this)">Bài học</button><button onclick="show('journal',this)">Nhật ký</button><button onclick="show('todo',this)">Todo</button></div><section id="content"></section><section class="settings" id="settings" hidden><label>Gemini API key</label><input id="key" type="password" placeholder="AIza..." oninput="saveKey()"><p class="small">Key chỉ lưu cục bộ trên điện thoại. Không đưa key vào GitHub.</p></section><div id="hint" class="hint" hidden></div></main><nav class="dock"><button onclick="show('lesson')">▤</button><button id="rec" class="record" onclick="toggleRecord()"><span class="dot">● </span><span id="timer">●</span></button><button onclick="show('todo')">☑</button></nav>
+:root {
+  --bg: #fff;
+  --surface: #fafafa;
+  --border: #e4e4e7;
+  --border-light: #f4f4f5;
+  --text: #18181b;
+  --muted: #71717a;
+  --accent: #0047ff;
+  --accent-bg: #eff4ff;
+  --danger: #ef4444;
+  --success: #22c55e;
+  --dock-h: 80px;
+  font-family: -apple-system, 'SF Pro Display', Arial, sans-serif;
+  color: var(--text);
+  background: var(--bg);
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+body { margin: 0; }
+button, input, textarea { font: inherit; }
+
+/* Layout */
+.app {
+  max-width: 390px;
+  min-height: 100vh;
+  margin: auto;
+  padding: calc(20px + env(safe-area-inset-top)) 20px calc(var(--dock-h) + 28px + env(safe-area-inset-bottom));
+}
+
+/* Header */
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+h1 { font-size: 26px; margin: 0; font-weight: 700; letter-spacing: -0.5px; }
+.header-actions { display: flex; gap: 8px; align-items: center; }
+.btn-icon {
+  width: 36px; height: 36px;
+  border: none; background: none;
+  border-radius: 10px;
+  font-size: 18px;
+  cursor: pointer;
+  color: var(--text);
+  display: flex; align-items: center; justify-content: center;
+  transition: background 120ms;
+}
+.btn-icon:active { background: var(--border-light); }
+
+/* Date */
+.date { font: 11px monospace; letter-spacing: 2.5px; color: var(--muted); margin-bottom: 6px; }
+
+/* Hero */
+.hero { font-size: 42px; font-weight: 300; line-height: 1.08; margin: 16px 0 36px; }
+
+/* Tabs */
+.tabs { display: flex; border-bottom: 1px solid var(--border); gap: 0; }
+.tabs button {
+  border: 0; background: var(--bg);
+  padding: 12px 14px 11px;
+  color: var(--muted);
+  font-size: 14px; font-weight: 500;
+  cursor: pointer;
+  position: relative;
+  transition: color 120ms;
+}
+.tabs button.active { color: var(--text); }
+.tabs button.active::after {
+  content: '';
+  position: absolute; bottom: -1px; left: 0; right: 0; height: 2px;
+  background: var(--text);
+}
+.badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 18px; height: 18px;
+  border-radius: 9px; padding: 0 5px;
+  font-size: 10px; font-weight: 600;
+  background: var(--border); color: var(--muted);
+  margin-left: 5px; vertical-align: middle;
+}
+.tabs button.active .badge { background: var(--text); color: var(--bg); }
+
+/* Content section */
+#content { padding-top: 4px; }
+
+/* Entry */
+.entry { padding: 22px 0; border-bottom: 1px solid var(--border-light); position: relative; }
+.entry:last-child { border-bottom: none; }
+.meta { font: 10px monospace; letter-spacing: 2px; color: var(--muted); }
+.entry h2 { font-size: 18px; margin: 10px 0 6px; font-weight: 600; line-height: 1.25; padding-right: 28px; }
+.entry p { color: var(--muted); line-height: 1.6; margin: 0; font-size: 14px; }
+.btn-delete {
+  position: absolute; top: 22px; right: 0;
+  width: 26px; height: 26px;
+  border: none; background: none;
+  font-size: 16px; color: var(--border);
+  cursor: pointer; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  transition: color 120ms, background 120ms;
+}
+.btn-delete:hover, .btn-delete:active { color: var(--danger); background: #fef2f2; }
+
+/* Todo */
+.todo {
+  display: flex; gap: 14px; align-items: flex-start;
+  padding: 16px 0; border-bottom: 1px solid var(--border-light);
+}
+.todo:last-child { border-bottom: none; }
+.todo input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--text); flex-shrink: 0; margin-top: 1px; cursor: pointer; }
+.todo-text { flex: 1; }
+.todo-text span { display: block; font-size: 15px; line-height: 1.4; }
+.todo.done .todo-text span { text-decoration: line-through; color: var(--muted); }
+.todo-del {
+  border: none; background: none; color: var(--border);
+  font-size: 16px; cursor: pointer; padding: 2px 4px; border-radius: 4px;
+  flex-shrink: 0; transition: color 120ms;
+}
+.todo-del:hover { color: var(--danger); }
+
+/* Empty state */
+.empty {
+  text-align: center;
+  padding: 52px 0 32px;
+  color: var(--muted);
+}
+.empty-icon { font-size: 36px; margin-bottom: 12px; opacity: 0.4; }
+.empty p { font-size: 14px; margin: 0; line-height: 1.6; }
+
+/* Form panel */
+.form-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px;
+  margin: 20px 0;
+}
+.form-panel label {
+  display: block; font-size: 11px; font-weight: 600;
+  letter-spacing: 1.5px; color: var(--muted); margin-bottom: 6px;
+}
+.form-panel input,
+.form-panel textarea {
+  width: 100%; padding: 11px 13px;
+  border: 1px solid var(--border);
+  border-radius: 9px; background: var(--bg);
+  font-size: 15px; color: var(--text);
+  outline: none;
+  transition: border-color 120ms;
+  -webkit-appearance: none;
+}
+.form-panel input:focus,
+.form-panel textarea:focus { border-color: var(--accent); }
+.form-panel textarea { resize: vertical; min-height: 90px; line-height: 1.55; }
+.form-row { display: flex; gap: 9px; margin-top: 12px; flex-wrap: wrap; }
+.form-row .field { flex: 1; min-width: 0; }
+.form-actions { display: flex; gap: 8px; margin-top: 14px; justify-content: flex-end; }
+.btn-primary {
+  padding: 10px 20px; border: none;
+  background: var(--text); color: var(--bg);
+  border-radius: 9px; font-size: 14px; font-weight: 600;
+  cursor: pointer; transition: opacity 120ms;
+}
+.btn-primary:active { opacity: 0.75; }
+.btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-secondary {
+  padding: 10px 16px; border: 1px solid var(--border);
+  background: var(--bg); color: var(--muted);
+  border-radius: 9px; font-size: 14px;
+  cursor: pointer; transition: background 120ms;
+}
+.btn-secondary:active { background: var(--border-light); }
+
+/* AI result box */
+.ai-result {
+  margin-top: 14px;
+  padding: 14px;
+  background: var(--accent-bg);
+  border: 1px solid #c7d7fe;
+  border-radius: 10px;
+}
+.ai-result-label { font-size: 10px; font-weight: 700; letter-spacing: 2px; color: var(--accent); margin-bottom: 6px; }
+.ai-result-text { font-size: 14px; line-height: 1.6; color: var(--text); white-space: pre-wrap; }
+
+/* Settings */
+.settings { margin-top: 28px; border-top: 1px solid var(--border); padding-top: 20px; }
+.settings-title { font-size: 11px; font-weight: 700; letter-spacing: 2px; color: var(--muted); margin-bottom: 14px; }
+.settings input {
+  width: 100%; padding: 11px 13px;
+  border: 1px solid var(--border); border-radius: 9px;
+  font-size: 14px; color: var(--text); background: var(--bg);
+  -webkit-appearance: none; outline: none;
+}
+.settings input:focus { border-color: var(--accent); }
+.small { font-size: 12px; color: var(--muted); line-height: 1.55; margin: 8px 0 0; }
+.settings-row { display: flex; gap: 8px; align-items: center; justify-content: space-between; margin-top: 18px; }
+.settings-row span { font-size: 14px; color: var(--muted); }
+.btn-danger-sm {
+  padding: 8px 14px; border: 1px solid #fca5a5;
+  background: #fef2f2; color: var(--danger);
+  border-radius: 8px; font-size: 13px; font-weight: 600;
+  cursor: pointer;
+}
+
+/* Dock */
+.dock {
+  position: fixed;
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  left: 50%; transform: translateX(-50%);
+  width: calc(100% - 32px); max-width: 358px;
+  height: var(--dock-h);
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  background: rgba(255,255,255,0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  display: flex; align-items: center; justify-content: space-around;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+}
+.dock-btn {
+  border: none; background: none;
+  width: 44px; height: 44px;
+  border-radius: 12px;
+  font-size: 20px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--muted);
+  transition: color 120ms, background 120ms;
+}
+.dock-btn.active { color: var(--text); }
+.dock-btn:active { background: var(--border-light); }
+
+/* Record button */
+.record {
+  width: 56px; height: 56px;
+  border-radius: 50%;
+  border: 1.5px solid #27272a;
+  background: #0a0a0a; color: white;
+  font-size: 20px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 5px;
+  transition: width 200ms cubic-bezier(.4,0,.2,1), border-radius 200ms cubic-bezier(.4,0,.2,1);
+}
+.record.on { width: 148px; border-radius: 28px; background: #18181b; }
+.dot { display: none; font-size: 10px; color: #ff3b30; }
+.on .dot { display: inline; animation: pulse 1s ease-in-out infinite; }
+@keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:0.3 } }
+#timer { font-size: 13px; font-variant-numeric: tabular-nums; font-family: monospace; }
+
+/* Toast */
+.toast {
+  position: fixed;
+  bottom: calc(var(--dock-h) + 24px + env(safe-area-inset-bottom));
+  left: 50%; transform: translateX(-50%) translateY(8px);
+  background: #18181b; color: #fff;
+  padding: 12px 20px;
+  border-radius: 12px;
+  font-size: 13px; font-weight: 500;
+  white-space: nowrap;
+  max-width: calc(100% - 48px);
+  opacity: 0;
+  transition: opacity 220ms, transform 220ms;
+  pointer-events: none;
+  z-index: 100;
+  text-align: center;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast.success { background: #15803d; }
+.toast.error { background: #b91c1c; }
+
+/* Post-recording panel */
+.rec-panel {
+  margin: 20px 0;
+  padding: 18px;
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+}
+.rec-panel-title {
+  font-size: 11px; font-weight: 700; letter-spacing: 1.5px; color: var(--muted);
+  margin-bottom: 12px;
+}
+.rec-file {
+  font: 12px monospace; color: var(--accent);
+  background: var(--accent-bg); border-radius: 6px;
+  padding: 6px 10px; margin-bottom: 14px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+</style>
+</head>
+<body>
+<main class="app">
+  <header>
+    <h1>Life Record</h1>
+    <div class="header-actions">
+      <button class="btn-icon" id="btn-add" onclick="openAddForm()" aria-label="Thêm mới" title="Thêm mới">＋</button>
+      <button class="btn-icon" onclick="toggleSettings()" aria-label="Cài đặt" title="Cài đặt">⚙</button>
+    </div>
+  </header>
+
+  <div class="date" id="date"></div>
+  <div class="hero">Ghi lại.<br>Hiểu sâu hơn.</div>
+
+  <div class="tabs">
+    <button class="active" id="tab-lesson" onclick="show('lesson',this)">Bài học<span class="badge" id="badge-lesson">0</span></button>
+    <button id="tab-journal" onclick="show('journal',this)">Nhật ký<span class="badge" id="badge-journal">0</span></button>
+    <button id="tab-todo" onclick="show('todo',this)">Todo<span class="badge" id="badge-todo">0</span></button>
+  </div>
+
+  <!-- Add form (hidden by default) -->
+  <div class="form-panel" id="add-form" hidden>
+    <label id="add-form-label">TIÊU ĐỀ</label>
+    <input id="add-title" type="text" placeholder="Nhập tiêu đề..." maxlength="100">
+    <div style="margin-top:12px">
+      <label>NỘI DUNG</label>
+      <textarea id="add-body" placeholder="Nhập nội dung..." rows="4"></textarea>
+    </div>
+    <!-- AI summarize -->
+    <div id="ai-zone" style="margin-top:10px; display:none">
+      <button class="btn-secondary" id="btn-ai" onclick="aiSummarize()" style="width:100%; text-align:center">✦ Tóm tắt bằng Gemini AI</button>
+      <div class="ai-result" id="ai-result" hidden>
+        <div class="ai-result-label">GỢI Ý TỪ AI</div>
+        <div class="ai-result-text" id="ai-result-text"></div>
+        <div class="form-actions" style="margin-top:10px">
+          <button class="btn-secondary" onclick="rejectAI()">Bỏ qua</button>
+          <button class="btn-primary" onclick="acceptAI()">Dùng gợi ý này</button>
+        </div>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn-secondary" onclick="closeAddForm()">Huỷ</button>
+      <button class="btn-primary" id="btn-save-entry" onclick="saveEntry()">Lưu</button>
+    </div>
+  </div>
+
+  <!-- Post-recording panel -->
+  <div class="rec-panel" id="rec-panel" hidden>
+    <div class="rec-panel-title">GHI ÂM ĐÃ LƯU</div>
+    <div class="rec-file" id="rec-file-path"></div>
+    <p style="font-size:13px;color:var(--muted);margin:0 0 14px">Nhập lại nội dung bạn vừa ghi âm để lưu hoặc tóm tắt bằng AI:</p>
+    <label style="font-size:11px;font-weight:700;letter-spacing:1.5px;color:var(--muted)">NỘI DUNG GHI ÂM</label>
+    <textarea id="rec-content" placeholder="Viết lại hoặc dán nội dung..." rows="4"
+      style="width:100%;margin-top:6px;padding:11px 13px;border:1px solid var(--border);border-radius:9px;font-size:15px;line-height:1.55;resize:vertical;outline:none;-webkit-appearance:none"
+      oninput="onRecContentInput()"></textarea>
+    <!-- AI zone inside rec panel -->
+    <div id="rec-ai-zone" style="margin-top:10px;display:none">
+      <button class="btn-secondary" id="btn-rec-ai" onclick="recAiSummarize()" style="width:100%;text-align:center">✦ Tóm tắt bằng Gemini AI</button>
+      <div class="ai-result" id="rec-ai-result" hidden>
+        <div class="ai-result-label">GỢI Ý TỪ AI</div>
+        <div class="ai-result-text" id="rec-ai-result-text"></div>
+        <div class="form-actions" style="margin-top:10px">
+          <button class="btn-secondary" onclick="rejectRecAI()">Bỏ qua</button>
+          <button class="btn-primary" onclick="acceptRecAI()">Dùng gợi ý này</button>
+        </div>
+      </div>
+    </div>
+    <div class="form-actions" style="margin-top:14px">
+      <button class="btn-secondary" onclick="closeRecPanel()">Đóng</button>
+      <button class="btn-primary" id="btn-save-rec" onclick="saveRecEntry()" disabled>Lưu vào Bài học</button>
+    </div>
+  </div>
+
+  <section id="content"></section>
+
+  <!-- Settings -->
+  <section class="settings" id="settings" hidden>
+    <div class="settings-title">CÀI ĐẶT</div>
+    <label>Gemini API Key</label>
+    <input id="key" type="password" placeholder="AIza..." oninput="saveKey()">
+    <p class="small">Key chỉ lưu cục bộ trên thiết bị. Không đưa key vào GitHub.</p>
+    <div class="settings-row">
+      <span>Xóa toàn bộ dữ liệu</span>
+      <button class="btn-danger-sm" onclick="clearAll()">Xóa tất cả</button>
+    </div>
+  </section>
+</main>
+
+<nav class="dock">
+  <button class="dock-btn active" id="dock-lesson" onclick="show('lesson',null,'dock-lesson')" aria-label="Bài học">▤</button>
+  <button class="record" id="rec" onclick="toggleRecord()">
+    <span class="dot">●</span>
+    <span id="timer">●</span>
+  </button>
+  <button class="dock-btn" id="dock-todo" onclick="show('todo',null,'dock-todo')" aria-label="Todo">☑</button>
+</nav>
+
+<div class="toast" id="toast"></div>
+
 <script>
-const data={lesson:[['10:45 · MẠNG MÁY TÍNH','Cách STP chọn Root Bridge','Switch có Bridge ID thấp nhất sẽ trở thành Root Bridge.']],journal:[['08:20 · NHẬT KÝ','Điều cần tập trung tuần này','Hoàn thiện sơ đồ use case và dành ba buổi ôn lại kiến thức VLAN.']],todo:JSON.parse(localStorage.todos||'[["Ôn VLAN",false],["Hoàn thiện use case",false]]')};let recording=false,start=0,tick;
-date.textContent=new Intl.DateTimeFormat('vi-VN',{weekday:'long',day:'numeric',month:'long'}).format(new Date()).toUpperCase(); key.value=localStorage.geminiKey||'';
-function show(type,el){document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('active'));if(el)el.classList.add('active');if(type==='todo'){content.innerHTML=data.todo.map((x,i)=>`<label class="todo ${x[1]?'done':''}"><input type="checkbox" ${x[1]?'checked':''} onchange="done(${i})"><span>${x[0]}</span></label>`).join('')}else content.innerHTML=data[type].map(x=>`<article class="entry"><div class="meta">${x[0]}</div><h2>${x[1]}</h2><p>${x[2]}</p></article>`).join('')}
-function done(i){data.todo[i][1]=!data.todo[i][1];localStorage.todos=JSON.stringify(data.todo);show('todo')}
-function toggleRecord(){if(!window.LifeRecordNative){notice('Thiết bị không hỗ trợ ghi âm native.');return} recording?LifeRecordNative.stop():LifeRecordNative.requestAndStart()}
-function nativeEvent(name,value){if(name==='recording'){recording=true;start=Date.now();rec.classList.add('on');tick=setInterval(()=>{let s=Math.floor((Date.now()-start)/1000);timer.textContent=`${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`},500)}else{recording=false;clearInterval(tick);rec.classList.remove('on');timer.textContent='●';notice(name==='saved'?'Đã lưu bản ghi cục bộ trên điện thoại.':value)}}
-function notice(x){hint.hidden=false;hint.textContent=x}function toggleSettings(){settings.hidden=!settings.hidden}function saveKey(){localStorage.geminiKey=key.value.trim()}show('lesson');
-</script></body></html>
+// ─── Storage helpers ──────────────────────────────────────────────
+const SEED_LESSONS = [
+  ['10:45 · MẠNG MÁY TÍNH','Cách STP chọn Root Bridge','Switch có Bridge ID thấp nhất sẽ trở thành Root Bridge.']
+];
+const SEED_JOURNAL = [
+  ['08:20 · NHẬT KÝ','Điều cần tập trung tuần này','Hoàn thiện sơ đồ use case và dành ba buổi ôn lại kiến thức VLAN.']
+];
+
+function load(key, seed) {
+  const raw = localStorage.getItem(key);
+  if (raw) return JSON.parse(raw);
+  if (seed) { save(key, seed); return seed; }
+  return [];
+}
+function save(key, val) { localStorage.setItem(key, JSON.stringify(val)); }
+
+const data = {
+  lesson:  load('lr_lessons',  SEED_LESSONS),
+  journal: load('lr_journal',  SEED_JOURNAL),
+  todo:    load('lr_todos',    [['Ôn VLAN', false], ['Hoàn thiện use case', false]])
+};
+
+// ─── State ───────────────────────────────────────────────────────
+let currentTab = 'lesson';
+let recording = false, recStart = 0, recTick;
+let aiSuggestion = ''; // for add form
+let recAiSuggestion = ''; // for rec panel
+let lastSavedPath = '';
+
+// ─── Init ─────────────────────────────────────────────────────────
+document.getElementById('date').textContent =
+  new Intl.DateTimeFormat('vi-VN',{weekday:'long',day:'numeric',month:'long'})
+    .format(new Date()).toUpperCase();
+
+const keyInput = document.getElementById('key');
+keyInput.value = localStorage.geminiKey || '';
+
+show('lesson', null, 'dock-lesson');
+
+// ─── Tabs / Render ────────────────────────────────────────────────
+function show(type, tabEl, dockId) {
+  currentTab = type;
+  // Update tab underline
+  document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
+  if (tabEl) tabEl.classList.add('active');
+  else {
+    const map = { lesson:'tab-lesson', journal:'tab-journal', todo:'tab-todo' };
+    const t = document.getElementById(map[type]);
+    if (t) t.classList.add('active');
+  }
+  // Update dock
+  document.querySelectorAll('.dock-btn').forEach(b => b.classList.remove('active'));
+  if (dockId) document.getElementById(dockId)?.classList.add('active');
+
+  // Add button visibility
+  document.getElementById('btn-add').style.display = (type === 'todo') ? 'none' : '';
+  closeAddForm();
+  render();
+}
+
+function render() {
+  const el = document.getElementById('content');
+  updateBadges();
+
+  if (currentTab === 'todo') {
+    if (data.todo.length === 0) {
+      el.innerHTML = emptyState('☑', 'Chưa có việc cần làm nào.<br>Thêm bằng ô nhập bên dưới.');
+      el.innerHTML += todoInput();
+      return;
+    }
+    el.innerHTML =
+      data.todo.map((x,i) => `
+        <label class="todo ${x[1]?'done':''}">
+          <input type="checkbox" ${x[1]?'checked':''} onchange="toggleTodo(${i})">
+          <div class="todo-text"><span>${escHtml(x[0])}</span></div>
+          <button class="todo-del" onclick="deleteTodo(event,${i})" title="Xóa">✕</button>
+        </label>`).join('') + todoInput();
+    return;
+  }
+
+  const list = data[currentTab];
+  if (list.length === 0) {
+    const icons = { lesson:'📖', journal:'✏️' };
+    const msgs  = { lesson:'Chưa có bài học nào.\nNhấn ＋ ở góc trên để thêm.', journal:'Chưa có nhật ký nào.\nNhấn ＋ ở góc trên để thêm.' };
+    el.innerHTML = emptyState(icons[currentTab], msgs[currentTab]);
+    return;
+  }
+  el.innerHTML = list.map((x,i) => `
+    <article class="entry">
+      <div class="meta">${escHtml(x[0])}</div>
+      <h2>${escHtml(x[1])}<button class="btn-delete" onclick="deleteEntry(${i})" title="Xóa">✕</button></h2>
+      <p>${escHtml(x[2])}</p>
+    </article>`).join('');
+}
+
+function emptyState(icon, msg) {
+  return `<div class="empty"><div class="empty-icon">${icon}</div><p>${msg.replace(/\n/g,'<br>')}</p></div>`;
+}
+function todoInput() {
+  return `<div style="display:flex;gap:8px;padding:16px 0">
+    <input id="todo-new" type="text" placeholder="Thêm việc mới..." maxlength="120"
+      style="flex:1;padding:11px 13px;border:1px solid var(--border);border-radius:9px;font-size:15px;outline:none;-webkit-appearance:none"
+      onkeydown="if(event.key==='Enter')addTodo()">
+    <button class="btn-primary" onclick="addTodo()" style="padding:11px 16px">Thêm</button>
+  </div>`;
+}
+
+function updateBadges() {
+  document.getElementById('badge-lesson').textContent  = data.lesson.length;
+  document.getElementById('badge-journal').textContent = data.journal.length;
+  document.getElementById('badge-todo').textContent    = data.todo.filter(t=>!t[1]).length || data.todo.length;
+}
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ─── Entry CRUD ───────────────────────────────────────────────────
+function openAddForm() {
+  const form = document.getElementById('add-form');
+  const isHidden = form.hidden;
+  if (!isHidden) { closeAddForm(); return; }
+  form.hidden = false;
+  document.getElementById('add-form-label').textContent =
+    currentTab === 'lesson' ? 'TIÊU ĐỀ BÀI HỌC' : 'TIÊU ĐỀ NHẬT KÝ';
+  document.getElementById('add-title').value = '';
+  document.getElementById('add-body').value  = '';
+  document.getElementById('ai-zone').style.display = 'none';
+  document.getElementById('ai-result').hidden = true;
+  aiSuggestion = '';
+  // Show AI zone if key present
+  if (localStorage.geminiKey) {
+    document.getElementById('ai-zone').style.display = 'block';
+    document.getElementById('ai-result').hidden = true;
+  }
+  document.getElementById('add-title').focus();
+  // Scroll to form
+  setTimeout(()=>form.scrollIntoView({behavior:'smooth',block:'nearest'}), 80);
+}
+
+function closeAddForm() {
+  document.getElementById('add-form').hidden = true;
+  aiSuggestion = '';
+}
+
+function saveEntry() {
+  const title = document.getElementById('add-title').value.trim();
+  const body  = document.getElementById('add-body').value.trim();
+  if (!title) { toast('Vui lòng nhập tiêu đề.', 'error'); return; }
+
+  const now = new Date();
+  const time = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+  const label = currentTab === 'lesson' ? 'BÀI HỌC' : 'NHẬT KÝ';
+  const meta = `${time} · ${label}`;
+
+  data[currentTab].unshift([meta, title, body]);
+  save(currentTab === 'lesson' ? 'lr_lessons' : 'lr_journal', data[currentTab]);
+  closeAddForm();
+  render();
+  toast('Đã lưu!', 'success');
+}
+
+function deleteEntry(i) {
+  if (!confirm('Xóa mục này?')) return;
+  data[currentTab].splice(i, 1);
+  save(currentTab === 'lesson' ? 'lr_lessons' : 'lr_journal', data[currentTab]);
+  render();
+  toast('Đã xóa.');
+}
+
+// ─── Todo CRUD ────────────────────────────────────────────────────
+function toggleTodo(i) {
+  data.todo[i][1] = !data.todo[i][1];
+  save('lr_todos', data.todo);
+  render();
+}
+function deleteTodo(e, i) {
+  e.preventDefault();
+  if (!confirm('Xóa việc này?')) return;
+  data.todo.splice(i, 1);
+  save('lr_todos', data.todo);
+  render();
+  toast('Đã xóa.');
+}
+function addTodo() {
+  const inp = document.getElementById('todo-new');
+  const val = inp?.value?.trim();
+  if (!val) return;
+  data.todo.push([val, false]);
+  save('lr_todos', data.todo);
+  render();
+  // Re-focus after render
+  setTimeout(()=>{ const n=document.getElementById('todo-new'); if(n) n.focus(); }, 50);
+}
+
+// ─── Recording ────────────────────────────────────────────────────
+function toggleRecord() {
+  if (!window.LifeRecordNative) {
+    toast('Thiết bị không hỗ trợ ghi âm native.', 'error'); return;
+  }
+  recording ? LifeRecordNative.stop() : LifeRecordNative.requestAndStart();
+}
+
+function nativeEvent(name, value) {
+  if (name === 'recording') {
+    recording = true; recStart = Date.now();
+    const btn = document.getElementById('rec');
+    btn.classList.add('on');
+    recTick = setInterval(() => {
+      const s = Math.floor((Date.now() - recStart) / 1000);
+      document.getElementById('timer').textContent =
+        `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+    }, 500);
+    toast('Đang ghi âm…');
+  } else {
+    recording = false;
+    clearInterval(recTick);
+    const btn = document.getElementById('rec');
+    btn.classList.remove('on');
+    document.getElementById('timer').textContent = '●';
+
+    if (name === 'saved') {
+      lastSavedPath = value;
+      showRecPanel(value);
+    } else {
+      toast(value, 'error');
+    }
+  }
+}
+
+// ─── Post-recording panel ─────────────────────────────────────────
+function showRecPanel(filePath) {
+  const panel = document.getElementById('rec-panel');
+  panel.hidden = false;
+  // Show short filename
+  const parts = filePath.split('/');
+  document.getElementById('rec-file-path').textContent = parts[parts.length-1] || filePath;
+  document.getElementById('rec-content').value = '';
+  document.getElementById('btn-save-rec').disabled = true;
+  document.getElementById('rec-ai-zone').style.display =
+    localStorage.geminiKey ? 'block' : 'none';
+  document.getElementById('rec-ai-result').hidden = true;
+  recAiSuggestion = '';
+  // Switch to lesson tab and scroll
+  show('lesson', null, 'dock-lesson');
+  setTimeout(()=>panel.scrollIntoView({behavior:'smooth',block:'start'}), 100);
+}
+
+function closeRecPanel() {
+  document.getElementById('rec-panel').hidden = true;
+  recAiSuggestion = '';
+}
+
+function onRecContentInput() {
+  const val = document.getElementById('rec-content').value.trim();
+  document.getElementById('btn-save-rec').disabled = !val;
+}
+
+function saveRecEntry() {
+  const body = document.getElementById('rec-content').value.trim();
+  if (!body) { toast('Vui lòng nhập nội dung.', 'error'); return; }
+
+  const now = new Date();
+  const time = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+  const meta = `${time} · BÀI HỌC`;
+  const title = body.split('\n')[0].slice(0, 60) || 'Ghi âm';
+
+  data.lesson.unshift([meta, title, body]);
+  save('lr_lessons', data.lesson);
+  closeRecPanel();
+  show('lesson', null, 'dock-lesson');
+  toast('Đã lưu vào Bài học!', 'success');
+}
+
+// ─── Gemini API ───────────────────────────────────────────────────
+async function callGemini(text, btnEl, resultEl, resultTextEl, onDone) {
+  const key = localStorage.geminiKey?.trim();
+  if (!key) { toast('Chưa nhập Gemini API key trong Cài đặt.', 'error'); return; }
+  if (!text) { toast('Vui lòng nhập nội dung trước.', 'error'); return; }
+
+  const orig = btnEl.textContent;
+  btnEl.textContent = '⏳ Đang xử lý…';
+  btnEl.disabled = true;
+
+  const prompt = `Bạn là trợ lý học tập. Hãy tóm tắt nội dung sau thành một bài học ngắn gọn, súc tích (tối đa 5 câu), trình bày rõ ràng bằng tiếng Việt:\n\n${text}`;
+
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents:[{ parts:[{ text: prompt }] }] })
+      }
+    );
+    if (!res.ok) {
+      const err = await res.json().catch(()=>({}));
+      throw new Error(err?.error?.message || `HTTP ${res.status}`);
+    }
+    const json = await res.json();
+    const out = json?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    if (!out) throw new Error('Không nhận được phản hồi từ AI.');
+    resultTextEl.textContent = out.trim();
+    resultEl.hidden = false;
+    onDone(out.trim());
+  } catch(e) {
+    toast('Lỗi Gemini: ' + e.message, 'error');
+  } finally {
+    btnEl.textContent = orig;
+    btnEl.disabled = false;
+  }
+}
+
+// Add-form AI
+function aiSummarize() {
+  const text = document.getElementById('add-body').value.trim();
+  const btnEl = document.getElementById('btn-ai');
+  const resultEl = document.getElementById('ai-result');
+  const resultTextEl = document.getElementById('ai-result-text');
+  callGemini(text, btnEl, resultEl, resultTextEl, (out) => { aiSuggestion = out; });
+}
+function acceptAI() {
+  document.getElementById('add-body').value = aiSuggestion;
+  document.getElementById('ai-result').hidden = true;
+  aiSuggestion = '';
+}
+function rejectAI() {
+  document.getElementById('ai-result').hidden = true;
+  aiSuggestion = '';
+}
+
+// Rec-panel AI
+function recAiSummarize() {
+  const text = document.getElementById('rec-content').value.trim();
+  const btnEl = document.getElementById('btn-rec-ai');
+  const resultEl = document.getElementById('rec-ai-result');
+  const resultTextEl = document.getElementById('rec-ai-result-text');
+  callGemini(text, btnEl, resultEl, resultTextEl, (out) => { recAiSuggestion = out; });
+}
+function acceptRecAI() {
+  document.getElementById('rec-content').value = recAiSuggestion;
+  document.getElementById('rec-ai-result').hidden = true;
+  document.getElementById('btn-save-rec').disabled = false;
+  recAiSuggestion = '';
+}
+function rejectRecAI() {
+  document.getElementById('rec-ai-result').hidden = true;
+  recAiSuggestion = '';
+}
+
+// ─── Settings ─────────────────────────────────────────────────────
+function toggleSettings() {
+  const s = document.getElementById('settings');
+  s.hidden = !s.hidden;
+  if (!s.hidden) {
+    document.getElementById('ai-zone').style.display =
+      localStorage.geminiKey ? 'block' : 'none';
+  }
+}
+function saveKey() {
+  localStorage.geminiKey = document.getElementById('key').value.trim();
+}
+function clearAll() {
+  if (!confirm('Xóa TOÀN BỘ dữ liệu? Hành động này không thể hoàn tác.')) return;
+  ['lr_lessons','lr_journal','lr_todos','geminiKey'].forEach(k=>localStorage.removeItem(k));
+  location.reload();
+}
+
+// ─── Toast ────────────────────────────────────────────────────────
+let toastTimer;
+function toast(msg, type='') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast' + (type ? ' ' + type : '');
+  void el.offsetWidth;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>el.classList.remove('show'), 2800);
+}
+</script>
+</body>
+</html>
